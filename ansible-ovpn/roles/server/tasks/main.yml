@@ -1,0 +1,99 @@
+---
+# tasks file for server
+- name: 'Stage #0 apt-get update'
+  apt:
+    update_cache: yes
+  become: yes
+  become_method: sudo
+
+
+- name: 'Stage #1 packages install'
+  apt:
+    name: "{{ packages }}"
+  vars:
+    packages:
+    - openvpn
+    - easy-rsa
+  become: yes
+  become_method: sudo
+
+- name: 'Stage #3 easy-rsa dir creation'
+  command: make-cadir {{ca_dir}}
+  become_user: ubuntu
+  args:
+    creates: '{{ca_dir}}'
+
+- name: 'Stage #3.1 vars template moving'
+  template: 
+    src: ~/ansible-ovpn/roles/server/templates/vars
+    dest: '{{ca_dir}}'
+  become_user: ubuntu
+
+- name: 'Stage #4 ca creation'
+  shell: bash -c ' source vars && {{item}}'
+  args:
+    chdir: '{{ca_dir}}'
+  with_items:
+    - ./clean-all
+    - ./pkitool --initca
+
+- name: 'Stage #5 server key creation'
+  shell: bash -c ' source vars && {{item}}'
+  args:
+    chdir: '{{ca_dir}}'
+  with_items:
+    - ./pkitool --server {{srv}}
+    - ./build-dh
+    - openvpn --genkey --secret keys/ta.key
+
+- name: 'Stage #6 client config file template generation / ca.crt var preparing'
+  command: cat {{key_dir}}ca.crt
+  register: srv_ca
+
+- name: 'Stage #6.1 client config file template generation / ta.key var preparing'
+  command: cat {{key_dir}}/ta.key
+  register: ta_key
+
+- name: 'Stage #6.2 client config file template generation / template moving'
+  template:
+    src: ~/ansible-ovpn/roles/server/templates/client.conf.j2
+    dest: '{{ovpn_confs}}'
+  become_user: ubuntu
+
+- name: 'Stage #7 openvpn service setup / server keys moving'
+  copy:
+    src: "{{key_dir}}{{item}}"
+    dest: /etc/openvpn/{{item}}
+    remote_src: yes
+    force: yes
+  with_items: 
+  - ca.crt
+  - ca.key
+  - "{{srv}}.crt"
+  - "{{srv}}.key"
+  - ta.key
+  - dh2048.pem
+  become: yes
+  become_method: sudo
+  ignore_errors: yes
+
+- name: 'Stage #7.1 openvpn service setup / config template moving'
+  template:
+    src: ~/ansible-ovpn/roles/server/templates/server.conf.j2
+    dest: /etc/openvpn/{{srv}}.conf
+  become: yes
+  become_method: sudo
+
+- name: 'Stage #8 network config for server / ipv4 forward enable'
+  sysctl: 
+    name: net.ipv4.ip_forward 
+    value: 1 
+    sysctl_set: yes 
+    state: present
+
+- name: 'Stage #9 openvpn service enable'
+  command: systemctl start openvpn@{{srv}}
+  become: yes
+  become_method: sudo
+  notify:
+    - restart openvpn@{{srv}}

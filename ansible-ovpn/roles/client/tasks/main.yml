@@ -1,0 +1,33 @@
+---
+# tasks file for client
+- name: 'client key creation | template moving | crt to conf moving | key to conf moving '
+  shell: bash -c ' source vars && ./pkitool {{groups['client'][item]}}'
+  args:
+    chdir: '{{ca_dir}}'
+  with_items:
+  - 0
+
+- shell: bash -c 'cp client.conf.j2 {{groups['client'][item]}}.conf'
+  args:
+    chdir: '{{ovpn_confs}}'
+  with_items:
+  - 0
+ 
+- shell: |
+    echo "<cert>" >> {{groups['client'][item]}}.conf
+    cat /home/ubuntu/openvpn-ca/keys/{{groups['client'][item]}}.crt >> {{groups['client'][item]}}.conf
+    echo "</cert>" >> {{groups['client'][item]}}.conf
+  with_items:
+  - 0
+  args:
+    chdir: '{{ovpn_confs}}'
+
+- shell: |
+    echo "<key>" >> {{groups['client'][item]}}.conf
+    cat /home/ubuntu/openvpn-ca/keys/{{groups['client'][item]}}.key >> {{groups['client'][item]}}.conf
+    echo "</key>" >> {{groups['client'][item]}}.conf
+  with_items:
+  - 0
+  args:
+    chdir: '{{ovpn_confs}}'
+

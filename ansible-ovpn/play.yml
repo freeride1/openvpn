@@ -1,0 +1,16 @@
+--- # Round 1! Fight!
+- hosts: server
+  remote_user: ubuntu
+#  become: yes
+#  become_method: sudo
+  connection: ssh
+  gather_facts: yes
+  vars:
+    ca_dir: /home/ubuntu/openvpn-ca/
+    key_dir: /home/ubuntu/openvpn-ca/keys/
+    ovpn_confs: /home/ubuntu/client-configs/
+    srv: "{{groups['server'][0]}}"
+  roles:
+#    - server
+    - client
+#    - client_conf

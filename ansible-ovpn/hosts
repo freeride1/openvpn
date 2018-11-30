@@ -1,0 +1,5 @@
+[server]
+#server ansible_ssh_host=ec2-34-247-180-201.eu-west-1.compute.amazonaws.com
+server0 ansible_ssh_host=172.31.14.135
+[client]
+client1 ansible_ssh_host=ec2-52-211-238-98.eu-west-1.compute.amazonaws.com
